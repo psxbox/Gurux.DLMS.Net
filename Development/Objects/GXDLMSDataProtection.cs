@@ -377,8 +377,8 @@ namespace Gurux.DLMS.Objects
                     case RestrictionType.Entry:
                         buff.SetUInt8(DataType.Structure);
                         buff.SetUInt8(2);
-                        GXCommon.SetData(settings, buff, DataType.UInt16, it.Value.Restriction.From);
-                        GXCommon.SetData(settings, buff, DataType.UInt16, it.Value.Restriction.To);
+                        GXCommon.SetData(settings, buff, DataType.UInt32, it.Value.Restriction.From);
+                        GXCommon.SetData(settings, buff, DataType.UInt32, it.Value.Restriction.To);
                         break;
                 }
             }
@@ -409,9 +409,40 @@ namespace Gurux.DLMS.Objects
                         case RestrictionType.None:
                             break;
                         case RestrictionType.Date:
+                            {
+                                if (restriction[1] is GXStructure s1)
+                                {
+                                    if (s1[0] is byte[] from)
+                                    {
+                                        co.Restriction.From = (GXDateTime)GXDLMSClient.ChangeType(from, DataType.DateTime, settings.UseUtc2NormalTime); ;
+                                    }
+                                    else
+                                    {
+                                        co.Restriction.From = s1[0];
+                                    }
+                                    if (s1[1] is byte[] to)
+                                    {
+                                        co.Restriction.To = (GXDateTime)GXDLMSClient.ChangeType(to, DataType.DateTime, settings.UseUtc2NormalTime); ;
+                                    }
+                                    else
+                                    {
+                                        co.Restriction.To = s1[1];
+                                    }
+                                }
+                                else
+                                {
+                                    co.Restriction.From = co.Restriction.To = null;
+                                }
+                            }
+                            break;
                         case RestrictionType.Entry:
-                            co.Restriction.From = restriction[1];
-                            co.Restriction.To = restriction[2];
+                            {
+                                if (restriction[1] is GXStructure s1)
+                                {
+                                    co.Restriction.From = Convert.ToInt32(s1[0]);
+                                    co.Restriction.To = Convert.ToInt32(s1[1]);
+                                }
+                            }
                             break;
                         default:
                             throw new ArgumentOutOfRangeException("Invalid restriction type.");
