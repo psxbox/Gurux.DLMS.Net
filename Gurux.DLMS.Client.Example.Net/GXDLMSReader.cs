@@ -56,7 +56,7 @@ namespace Gurux.DLMS.Reader
         /// <summary>
         /// Wait time in ms.
         /// </summary>
-        public int WaitTime = 5000;
+        public int WaitTime;
         /// <summary>
         /// Retry count.
         /// </summary>
@@ -79,8 +79,14 @@ namespace Gurux.DLMS.Reader
         /// <param name="media">Media.</param>
         /// <param name="trace">Trace level.</param>
         /// <param name="invocationCounter">Logical name of invocation counter.</param>
-        public GXDLMSReader(GXDLMSSecureClient client, IGXMedia media, TraceLevel trace, string invocationCounter)
+        public GXDLMSReader(
+            GXDLMSSecureClient client, 
+            IGXMedia media, 
+            TraceLevel trace, 
+            string invocationCounter, 
+            int waitTime)
         {
+            WaitTime = waitTime;
             Trace = trace;
             Media = media;
             Client = client;
@@ -1558,7 +1564,9 @@ namespace Gurux.DLMS.Reader
             {
                 while (reply.IsMoreData &&
                     (Client.ConnectionState != ConnectionState.None ||
-                    Client.PreEstablishedConnection))
+                    Client.PreEstablishedConnection) ||
+                    //If the meter is returing Receiver Ready.
+                    (reply.Error == 0 && reply.Data.Size == 0))
                 {
                     if (reply.IsStreaming())
                     {

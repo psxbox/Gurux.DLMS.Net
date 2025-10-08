@@ -32,18 +32,18 @@
 // Full text may be retrieved at http://www.gnu.org/licenses/gpl-2.0.txt
 //---------------------------------------------------------------------------
 
+using Gurux.Common;
+using Gurux.DLMS.Enums;
+using Gurux.DLMS.Objects.Enums;
+using Gurux.DLMS.Secure;
+using Gurux.MQTT;
+using Gurux.Net;
+using Gurux.Serial;
 using System;
 using System.Collections.Generic;
-using System.Text;
-using Gurux.Common;
-using Gurux.Serial;
-using Gurux.Net;
-using Gurux.DLMS.Enums;
-using Gurux.DLMS.Secure;
 using System.Diagnostics;
 using System.IO.Ports;
-using Gurux.DLMS.Objects.Enums;
-using Gurux.MQTT;
+using System.Text;
 
 namespace Gurux.DLMS.Client.Example
 {
@@ -64,13 +64,14 @@ namespace Gurux.DLMS.Client.Example
         //Generate new client and server certificates and import them to the server.
         public string GenerateSecuritySetupLN = null;
 
+        public int WaitTime = 5000;
         public static int GetParameters(string[] args, Settings settings)
         {
             GXSerial serial;
             //Has user give the custom serial port settings or are the default values used in mode E.
             bool modeEDefaultValues = true;
             string[] tmp;
-            List<GXCmdParameter> parameters = GXCommon.GetParameters(args, "h:p:c:s:r:i:It:a:P:g:S:C:n:v:o:T:A:B:D:d:l:F:m:E:V:G:M:K:N:W:w:f:L:q:b:R:u");
+            List<GXCmdParameter> parameters = GXCommon.GetParameters(args, "h:p:c:s:r:i:It:a:P:g:S:C:n:v:o:T:A:B:D:d:l:F:m:E:V:G:M:K:N:W:w:f:L:q:b:R:ux:O:");
             foreach (GXCmdParameter it in parameters)
             {
                 switch (it.Tag)
@@ -364,7 +365,7 @@ namespace Gurux.DLMS.Client.Example
                         settings.client.Ciphering.BlockCipherKey = GXCommon.HexToBytes(it.Value);
                         break;
                     case 'b':
-                        settings.client.Ciphering.BroadcastBlockCipherKey= GXCommon.HexToBytes(it.Value);
+                        settings.client.Ciphering.BroadcastBlockCipherKey = GXCommon.HexToBytes(it.Value);
                         break;
                     case 'D':
                         settings.client.Ciphering.DedicatedKey = GXCommon.HexToBytes(it.Value);
@@ -455,6 +456,19 @@ namespace Gurux.DLMS.Client.Example
                         else
                         {
                             throw new ArgumentException("Broadcast type must be UnConfirmed or Confirmed.");
+                        }
+                        break;
+                    case 'x':
+                        settings.WaitTime = Convert.ToInt32(it.Value);
+                        break;
+                    case 'O':
+                        if (Enum.TryParse(it.Value, ignoreCase: true, out Conformance c))
+                        {
+                            settings.client.ProposedConformance = c;
+                        }
+                        else
+                        {
+                            throw new ArgumentException("Invalid conformance value.");
                         }
                         break;
                     case '?':
@@ -562,6 +576,8 @@ namespace Gurux.DLMS.Client.Example
             Console.WriteLine(" -W \t General Block Transfer window size.");
             Console.WriteLine(" -w \t HDLC Window size. Default is 1");
             Console.WriteLine(" -f \t HDLC Frame size. Default is 128");
+            Console.WriteLine(" -x \t Wait time in milliseconds. The default is 5000 ms.");
+            Console.WriteLine(" -O \t Proposed conformance. -O \"Get,Set\"");
             Console.WriteLine(" -L \t Manufacturer ID (Flag ID) is used to use manufacturer depending functionality. -L LGZ");
             Console.WriteLine(" -R \t Data is send as a broadcast (UnConfirmed, Confirmed).");
             Console.WriteLine("Example:");

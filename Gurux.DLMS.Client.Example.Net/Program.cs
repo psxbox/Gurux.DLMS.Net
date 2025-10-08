@@ -58,6 +58,26 @@ namespace Gurux.DLMS.Client.Example
                 {
                     return ret;
                 }
+                settings.client.OnPdu += (sender, data) =>
+                {
+                    try
+                    {
+                        /*
+                        //Encrypted PDUs are converted to XML.
+                        GXDLMSTranslator translator = new GXDLMSTranslator();
+                        translator.Comments = true;
+                        translator.SecuritySuite = settings.client.Ciphering.SecuritySuite;
+                        translator.BlockCipherKey = settings.client.Ciphering.BlockCipherKey;
+                        translator.AuthenticationKey = settings.client.Ciphering.AuthenticationKey;
+                        string xml = translator.PduToXml(data);
+                        Console.WriteLine(xml);
+                        */
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.ToString());
+                    }
+                };
                 ////////////////////////////////////////
                 //Initialize connection settings.
                 if (settings.media is GXSerial)
@@ -74,7 +94,9 @@ namespace Gurux.DLMS.Client.Example
                     throw new Exception("Unknown media type.");
                 }
                 ////////////////////////////////////////
-                reader = new Reader.GXDLMSReader(settings.client, settings.media, settings.trace, settings.invocationCounter);
+                reader = new Reader.GXDLMSReader(settings.client, 
+                    settings.media, settings.trace, 
+                    settings.invocationCounter, settings.WaitTime);
                 reader.OnNotification += (data) =>
                 {
                     Console.WriteLine(data);
@@ -113,7 +135,7 @@ namespace Gurux.DLMS.Client.Example
                     settings.client.Coap.Token = 0x45;
                     settings.client.Coap.Host = net.HostName;
                     settings.client.Coap.MessageId = 1;
-                    settings.client.Coap.Port = (UInt16) net.Port;
+                    settings.client.Coap.Port = (UInt16)net.Port;
                     //DLMS version.
                     settings.client.Coap.Options[65001] = (byte)1;
                     //Client SAP.
