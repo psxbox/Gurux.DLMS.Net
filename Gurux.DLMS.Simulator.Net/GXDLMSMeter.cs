@@ -42,6 +42,8 @@ using Gurux.Serial;
 using System.IO.Ports;
 using Gurux.DLMS.Objects.Enums;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Gurux.DLMS.Simulator.Net
 {
@@ -431,11 +433,8 @@ namespace Gurux.DLMS.Simulator.Net
                         bb.Set((byte[])e.Data);
                     }
                 }
-                //Each reply is handled in own thread.
-                new Thread(() =>
-                {
-                    HandleReply(bb, e);
-                }).Start();
+                //Each reply is handled in own task.
+                _ = Task.Run(() => HandleReply(bb, e));
             }
             catch (Exception ex)
             {
@@ -491,8 +490,8 @@ namespace Gurux.DLMS.Simulator.Net
                 data.Value = ASCIIEncoding.ASCII.GetBytes("GRX" + serialNumber);
             }
 
-            //Create thread for every profile generic so values are captured if capture period is given.
-            new Thread(() =>
+            //Create task for every profile generic so values are captured if capture period is given.
+            _ = Task.Run(async () =>
             {
                 int wt = 0;
                 do
@@ -502,9 +501,20 @@ namespace Gurux.DLMS.Simulator.Net
                     // Console.WriteLine("Waiting " + TimeSpan.FromSeconds(wt).ToString() + " before next execution.");
                     wt *= 1000;
                     wt -= DateTime.Now.Millisecond;
+                    if (wt > 0)
+                    {
+                        try
+                        {
+                            await Task.Delay(wt);
+                        }
+                        catch (TaskCanceledException)
+                        {
+                            break;
+                        }
+                    }
                 }
-                while (!closing.WaitOne(wt));
-            }).Start();
+                while (!closing.WaitOne(0));
+            });
 
             //Own listener isn't created if there are multiple meters in the same port.
             if (!exclusive)
@@ -739,14 +749,13 @@ namespace Gurux.DLMS.Simulator.Net
                             }
                             else
                             {
-                                Thread t = new Thread(() =>
+                                _ = Task.Run(async () =>
                                 {
                                     //Wait 5 seconds before image is verified.
-                                    Thread.Sleep(5000);
+                                    await Task.Delay(5000);
                                     i.ImageTransferStatus = ImageTransferStatus.VerificationSuccessful;
                                     Console.WriteLine("Image is verificated");
                                 });
-                                t.Start();
                             }
                         }
                         if (i.ImageTransferStatus != ImageTransferStatus.VerificationFailed &&
@@ -763,14 +772,13 @@ namespace Gurux.DLMS.Simulator.Net
                         if (init)
                         {
                             i.ImageTransferStatus = ImageTransferStatus.ActivationInitiated;
-                            Thread t = new Thread(() =>
+                            _ = Task.Run(async () =>
                             {
                                 //Wait 5 seconds before image is activated.
-                                Thread.Sleep(5000);
+                                await Task.Delay(5000);
                                 i.ImageTransferStatus = ImageTransferStatus.ActivationSuccessful;
                                 Console.WriteLine("Image is activated.");
                             });
-                            t.Start();
                         }
                         //Wait 5 seconds before image is verified.
                         if (i.ImageTransferStatus != ImageTransferStatus.ActivationFailed &&

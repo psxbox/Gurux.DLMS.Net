@@ -954,7 +954,7 @@ namespace Gurux.DLMS.Internal
                 //deviation = -1 if skipped.
                 if (deviation != -1 && deviation != -32768 && year != 1 && (dt.Skip & DateTimeSkips.Year) == 0)
                 {
-                    dt.Value = new DateTimeOffset(new DateTime(year, month, day, hours, minutes, seconds, milliseconds, Thread.CurrentThread.CurrentCulture.Calendar),
+                    dt.Value = new DateTimeOffset(new DateTime(year, month, day, hours, minutes, seconds, milliseconds, System.Globalization.CultureInfo.CurrentCulture.Calendar),
                                                   new TimeSpan(0, -deviation, 0));
                 }
                 else //Use current time if deviation is not defined.
