@@ -32,9 +32,10 @@
 // Full text may be retrieved at http://www.gnu.org/licenses/gpl-2.0.txt
 //---------------------------------------------------------------------------
 
-using Gurux.DLMS;
 using System;
 using System.Threading;
+using System.Threading.Tasks;
+using Gurux.DLMS;
 
 namespace GuruxDLMSServerExample
 {
@@ -131,14 +132,14 @@ namespace GuruxDLMSServerExample
                     Console.WriteLine("Master key (KEK) title: {0}", GXDLMSTranslator.ToHex(LNServer.Kek));
                     Console.WriteLine("----------------------------------------------------------");
 
-                    Thread t = new Thread(() => DoWork(SNServer));
-                    t.Start();
-                    t = new Thread(() => DoWork(LNServer));
-                    t.Start();
-                    t = new Thread(() => DoWork(SN_47Server));
-                    t.Start();
-                    t = new Thread(() => DoWork(LN_47Server));
-                    t.Start();
+                    CancellationTokenSource cancellation = new CancellationTokenSource();
+                    Task[] workers = new Task[]
+                    {
+                        Task.Run(() => DoWork(SNServer, cancellation.Token)),
+                        Task.Run(() => DoWork(LNServer, cancellation.Token)),
+                        Task.Run(() => DoWork(SN_47Server, cancellation.Token)),
+                        Task.Run(() => DoWork(LN_47Server, cancellation.Token))
+                    };
 
                     ConsoleKey k;
                     while ((k = Console.ReadKey().Key) != ConsoleKey.Escape)
@@ -150,6 +151,8 @@ namespace GuruxDLMSServerExample
                         Console.WriteLine("Press Esc to close application or delete clear the console.");
                     }
 
+                    cancellation.Cancel();
+                    Task.WaitAll(workers);
                     //Close servers.
                     SNServer.Close();
                     LNServer.Close();
@@ -169,17 +172,25 @@ namespace GuruxDLMSServerExample
         /// <summary>
         /// Call servers run to handle all notifications.
         /// </summary>
-        /// <param name="param"></param>
-        private static void DoWork(object param)
+        /// <param name="server">Server instance.</param>
+        /// <param name="token">Cancellation token used to stop worker.</param>
+        private static void DoWork(GXDLMSBase server, CancellationToken token)
         {
-            AutoResetEvent wait = new AutoResetEvent(false);
-            GXDLMSBase server = (GXDLMSBase)param;
-            while (true)
+            using (AutoResetEvent wait = new AutoResetEvent(false))
             {
-                int wt = server.Run(wait);
-                //Wait until next event needs to execute.
-                Console.WriteLine("Waiting " + TimeSpan.FromSeconds(wt).ToString() + " before next execution.");
-                wait.WaitOne(wt * 1000);
+                WaitHandle[] handles = new WaitHandle[] { wait, token.WaitHandle };
+                while (!token.IsCancellationRequested)
+                {
+                    int wt = server.Run(wait);
+                    //Wait until next event needs to execute.
+                    Console.WriteLine("Waiting " + TimeSpan.FromSeconds(wt).ToString() + " before next execution.");
+                    int timeout = wt <= 0 ? Timeout.Infinite : wt * 1000;
+                    int signaled = WaitHandle.WaitAny(handles, timeout);
+                    if (signaled == 1)
+                    {
+                        break;
+                    }
+                }
             }
         }
 
