@@ -132,27 +132,41 @@ namespace GuruxDLMSServerExample
                     Console.WriteLine("Master key (KEK) title: {0}", GXDLMSTranslator.ToHex(LNServer.Kek));
                     Console.WriteLine("----------------------------------------------------------");
 
-                    CancellationTokenSource cancellation = new CancellationTokenSource();
-                    Task[] workers = new Task[]
+                    const int WorkerShutdownTimeoutMs = 30000;
+                    using (CancellationTokenSource cancellation = new CancellationTokenSource())
                     {
-                        Task.Run(() => DoWork(SNServer, cancellation.Token)),
-                        Task.Run(() => DoWork(LNServer, cancellation.Token)),
-                        Task.Run(() => DoWork(SN_47Server, cancellation.Token)),
-                        Task.Run(() => DoWork(LN_47Server, cancellation.Token))
-                    };
-
-                    ConsoleKey k;
-                    while ((k = Console.ReadKey().Key) != ConsoleKey.Escape)
-                    {
-                        if (k == ConsoleKey.Delete)
+                        Task[] workers = new Task[]
                         {
-                            Console.Clear();
-                        }
-                        Console.WriteLine("Press Esc to close application or delete clear the console.");
-                    }
+                            Task.Run(() => DoWork(SNServer, cancellation.Token)),
+                            Task.Run(() => DoWork(LNServer, cancellation.Token)),
+                            Task.Run(() => DoWork(SN_47Server, cancellation.Token)),
+                            Task.Run(() => DoWork(LN_47Server, cancellation.Token))
+                        };
 
-                    cancellation.Cancel();
-                    Task.WaitAll(workers);
+                        ConsoleKey k;
+                        while ((k = Console.ReadKey().Key) != ConsoleKey.Escape)
+                        {
+                            if (k == ConsoleKey.Delete)
+                            {
+                                Console.Clear();
+                            }
+                            Console.WriteLine("Press Esc to close application or Delete to clear the console.");
+                        }
+
+                        cancellation.Cancel();
+                        try
+                        {
+                            bool allWorkersStoppedInTime = Task.WaitAll(workers, WorkerShutdownTimeoutMs);
+                            if (!allWorkersStoppedInTime)
+                            {
+                                Console.WriteLine("Timed out while waiting for workers to stop.");
+                            }
+                        }
+                        catch (AggregateException ex)
+                        {
+                            Console.WriteLine("Error while waiting for workers to stop: " + ex.Flatten().Message);
+                        }
+                    }
                     //Close servers.
                     SNServer.Close();
                     LNServer.Close();
@@ -176,6 +190,7 @@ namespace GuruxDLMSServerExample
         /// <param name="token">Cancellation token used to stop worker.</param>
         private static void DoWork(GXDLMSBase server, CancellationToken token)
         {
+            const int CancellationHandleIndex = 1;
             using (AutoResetEvent wait = new AutoResetEvent(false))
             {
                 WaitHandle[] handles = new WaitHandle[] { wait, token.WaitHandle };
@@ -184,14 +199,32 @@ namespace GuruxDLMSServerExample
                     int wt = server.Run(wait);
                     //Wait until next event needs to execute.
                     Console.WriteLine("Waiting " + TimeSpan.FromSeconds(wt).ToString() + " before next execution.");
-                    int timeout = wt <= 0 ? Timeout.Infinite : wt * 1000;
+                    int timeout = CalculateWaitTimeout(wt);
                     int signaled = WaitHandle.WaitAny(handles, timeout);
-                    if (signaled == 1)
+                    if (signaled == CancellationHandleIndex)
                     {
                         break;
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Convert wait time from seconds to milliseconds while guarding against overflow.
+        /// </summary>
+        /// <param name="seconds">Delay in seconds.</param>
+        /// <returns>Delay in milliseconds or Timeout.Infinite when non-positive.</returns>
+        private static int CalculateWaitTimeout(int seconds)
+        {
+            if (seconds <= 0)
+            {
+                return Timeout.Infinite;
+            }
+            if (seconds > int.MaxValue / 1000)
+            {
+                return int.MaxValue;
+            }
+            return seconds * 1000;
         }
 
 
