@@ -184,27 +184,29 @@ namespace GuruxDLMSServerExample
         /// <param name="cancellationToken">Cancellation token to stop the server loop.</param>
         private static async Task DoWorkAsync(GXDLMSBase server, CancellationToken cancellationToken)
         {
-            AutoResetEvent wait = new AutoResetEvent(false);
-            try
+            using (AutoResetEvent wait = new AutoResetEvent(false))
             {
-                while (!cancellationToken.IsCancellationRequested)
+                try
                 {
-                    int wt = server.Run(wait);
-                    //Wait until next event needs to execute.
-                    Console.WriteLine("Waiting " + TimeSpan.FromSeconds(wt).ToString() + " before next execution.");
-                    try
+                    while (!cancellationToken.IsCancellationRequested)
                     {
-                        await Task.Delay(wt * 1000, cancellationToken);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        break;
+                        int wt = server.Run(wait);
+                        //Wait until next event needs to execute.
+                        Console.WriteLine("Waiting " + TimeSpan.FromSeconds(wt).ToString() + " before next execution.");
+                        try
+                        {
+                            await Task.Delay(wt * 1000, cancellationToken);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            break;
+                        }
                     }
                 }
-            }
-            finally
-            {
-                wait.Dispose();
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error in DoWorkAsync: {ex.Message}");
+                }
             }
         }
 

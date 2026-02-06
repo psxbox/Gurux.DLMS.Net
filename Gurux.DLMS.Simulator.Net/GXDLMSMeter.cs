@@ -433,7 +433,17 @@ namespace Gurux.DLMS.Simulator.Net
                     }
                 }
                 //Each reply is handled in own task.
-                _ = System.Threading.Tasks.Task.Run(() => HandleReply(bb, e));
+                _ = System.Threading.Tasks.Task.Run(() =>
+                {
+                    try
+                    {
+                        HandleReply(bb, e);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error in HandleReply: {ex.Message}");
+                    }
+                });
             }
             catch (Exception ex)
             {
@@ -492,27 +502,34 @@ namespace Gurux.DLMS.Simulator.Net
             //Create task for every profile generic so values are captured if capture period is given.
             _ = System.Threading.Tasks.Task.Run(async () =>
             {
-                int wt = 0;
-                do
+                try
                 {
-                    wt = Run(closing);
-                    //Wait until next event needs to execute.
-                    // Console.WriteLine("Waiting " + TimeSpan.FromSeconds(wt).ToString() + " before next execution.");
-                    wt *= 1000;
-                    wt -= DateTime.Now.Millisecond;
-                    if (wt > 0)
+                    int wt = 0;
+                    do
                     {
-                        try
+                        wt = Run(closing);
+                        //Wait until next event needs to execute.
+                        // Console.WriteLine("Waiting " + TimeSpan.FromSeconds(wt).ToString() + " before next execution.");
+                        wt *= 1000;
+                        wt -= DateTime.Now.Millisecond;
+                        if (wt > 0)
                         {
-                            await System.Threading.Tasks.Task.Delay(wt);
-                        }
-                        catch (TaskCanceledException)
-                        {
-                            break;
+                            try
+                            {
+                                await System.Threading.Tasks.Task.Delay(wt);
+                            }
+                            catch (TaskCanceledException)
+                            {
+                                break;
+                            }
                         }
                     }
+                    while (!closing.WaitOne(0));
                 }
-                while (!closing.WaitOne(0));
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error in profile generic capture loop: {ex.Message}");
+                }
             });
 
             //Own listener isn't created if there are multiple meters in the same port.
@@ -750,10 +767,18 @@ namespace Gurux.DLMS.Simulator.Net
                             {
                                 _ = System.Threading.Tasks.Task.Run(async () =>
                                 {
-                                    //Wait 5 seconds before image is verified.
-                                    await System.Threading.Tasks.Task.Delay(5000);
-                                    i.ImageTransferStatus = ImageTransferStatus.VerificationSuccessful;
-                                    Console.WriteLine("Image is verificated");
+                                    try
+                                    {
+                                        //Wait 5 seconds before image is verified.
+                                        await System.Threading.Tasks.Task.Delay(5000);
+                                        i.ImageTransferStatus = ImageTransferStatus.VerificationSuccessful;
+                                        Console.WriteLine("Image is verificated");
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Console.WriteLine($"Error in image verification: {ex.Message}");
+                                        i.ImageTransferStatus = ImageTransferStatus.VerificationFailed;
+                                    }
                                 });
                             }
                         }
@@ -773,10 +798,18 @@ namespace Gurux.DLMS.Simulator.Net
                             i.ImageTransferStatus = ImageTransferStatus.ActivationInitiated;
                             _ = System.Threading.Tasks.Task.Run(async () =>
                             {
-                                //Wait 5 seconds before image is activated.
-                                await System.Threading.Tasks.Task.Delay(5000);
-                                i.ImageTransferStatus = ImageTransferStatus.ActivationSuccessful;
-                                Console.WriteLine("Image is activated.");
+                                try
+                                {
+                                    //Wait 5 seconds before image is activated.
+                                    await System.Threading.Tasks.Task.Delay(5000);
+                                    i.ImageTransferStatus = ImageTransferStatus.ActivationSuccessful;
+                                    Console.WriteLine("Image is activated.");
+                                }
+                                catch (Exception ex)
+                                {
+                                    Console.WriteLine($"Error in image activation: {ex.Message}");
+                                    i.ImageTransferStatus = ImageTransferStatus.ActivationFailed;
+                                }
                             });
                         }
                         //Wait 5 seconds before image is verified.
