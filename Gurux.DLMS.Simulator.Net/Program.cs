@@ -49,7 +49,7 @@ namespace Gurux.DLMS.Simulator.Net
         /// <summary>
         /// Read simulated values from the meter.
         /// </summary>
-        static void ReadSimulatedValues(Settings settings)
+        static async System.Threading.Tasks.Task ReadSimulatedValuesAsync(Settings settings)
         {
             Reader.GXDLMSReader reader = null;
             try
@@ -74,7 +74,7 @@ namespace Gurux.DLMS.Simulator.Net
                 }
                 settings.media.Open();
                 //Some meters need a break here.
-                Thread.Sleep(1000);
+                await System.Threading.Tasks.Task.Delay(1000);
                 reader.ReadAll(settings.outputFile);
             }
             finally
@@ -426,7 +426,7 @@ namespace Gurux.DLMS.Simulator.Net
             }
         }
 
-        static int Main(string[] args)
+        static async System.Threading.Tasks.Task<int> Main(string[] args)
         {
             try
             {
@@ -438,7 +438,7 @@ namespace Gurux.DLMS.Simulator.Net
                 }
                 if (!string.IsNullOrEmpty(settings.outputFile))
                 {
-                    ReadSimulatedValues(settings);
+                    await ReadSimulatedValuesAsync(settings);
                     Console.WriteLine("----------------------------------------------------------");
                     Console.WriteLine("Simulator template is created: " + settings.outputFile);
                 }
