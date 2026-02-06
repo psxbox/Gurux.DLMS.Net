@@ -772,7 +772,7 @@ namespace Gurux.DLMS.Simulator.Net
                                         //Wait 5 seconds before image is verified.
                                         await System.Threading.Tasks.Task.Delay(5000);
                                         i.ImageTransferStatus = ImageTransferStatus.VerificationSuccessful;
-                                        Console.WriteLine("Image is verificated");
+                                        Console.WriteLine("Image is verified");
                                     }
                                     catch (Exception ex)
                                     {
