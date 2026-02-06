@@ -43,7 +43,6 @@ using System.IO.Ports;
 using Gurux.DLMS.Objects.Enums;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace Gurux.DLMS.Simulator.Net
 {
@@ -434,7 +433,7 @@ namespace Gurux.DLMS.Simulator.Net
                     }
                 }
                 //Each reply is handled in own task.
-                _ = Task.Run(() => HandleReply(bb, e));
+                _ = System.Threading.Tasks.Task.Run(() => HandleReply(bb, e));
             }
             catch (Exception ex)
             {
@@ -491,7 +490,7 @@ namespace Gurux.DLMS.Simulator.Net
             }
 
             //Create task for every profile generic so values are captured if capture period is given.
-            _ = Task.Run(async () =>
+            _ = System.Threading.Tasks.Task.Run(async () =>
             {
                 int wt = 0;
                 do
@@ -505,7 +504,7 @@ namespace Gurux.DLMS.Simulator.Net
                     {
                         try
                         {
-                            await Task.Delay(wt);
+                            await System.Threading.Tasks.Task.Delay(wt);
                         }
                         catch (TaskCanceledException)
                         {
@@ -749,10 +748,10 @@ namespace Gurux.DLMS.Simulator.Net
                             }
                             else
                             {
-                                _ = Task.Run(async () =>
+                                _ = System.Threading.Tasks.Task.Run(async () =>
                                 {
                                     //Wait 5 seconds before image is verified.
-                                    await Task.Delay(5000);
+                                    await System.Threading.Tasks.Task.Delay(5000);
                                     i.ImageTransferStatus = ImageTransferStatus.VerificationSuccessful;
                                     Console.WriteLine("Image is verificated");
                                 });
@@ -772,10 +771,10 @@ namespace Gurux.DLMS.Simulator.Net
                         if (init)
                         {
                             i.ImageTransferStatus = ImageTransferStatus.ActivationInitiated;
-                            _ = Task.Run(async () =>
+                            _ = System.Threading.Tasks.Task.Run(async () =>
                             {
                                 //Wait 5 seconds before image is activated.
-                                await Task.Delay(5000);
+                                await System.Threading.Tasks.Task.Delay(5000);
                                 i.ImageTransferStatus = ImageTransferStatus.ActivationSuccessful;
                                 Console.WriteLine("Image is activated.");
                             });
