@@ -35,12 +35,13 @@
 using Gurux.DLMS;
 using System;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace GuruxDLMSServerExample
 {
     class Program
     {
-        static int Main(string[] args)
+        static async Task<int> Main(string[] args)
         {
             try
             {
@@ -131,31 +132,41 @@ namespace GuruxDLMSServerExample
                     Console.WriteLine("Master key (KEK) title: {0}", GXDLMSTranslator.ToHex(LNServer.Kek));
                     Console.WriteLine("----------------------------------------------------------");
 
-                    Thread t = new Thread(() => DoWork(SNServer));
-                    t.Start();
-                    t = new Thread(() => DoWork(LNServer));
-                    t.Start();
-                    t = new Thread(() => DoWork(SN_47Server));
-                    t.Start();
-                    t = new Thread(() => DoWork(LN_47Server));
-                    t.Start();
-
-                    ConsoleKey k;
-                    while ((k = Console.ReadKey().Key) != ConsoleKey.Escape)
+                    using (CancellationTokenSource cts = new CancellationTokenSource())
                     {
-                        if (k == ConsoleKey.Delete)
-                        {
-                            Console.Clear();
-                        }
-                        Console.WriteLine("Press Esc to close application or delete clear the console.");
-                    }
+                        Task t1 = DoWorkAsync(SNServer, cts.Token);
+                        Task t2 = DoWorkAsync(LNServer, cts.Token);
+                        Task t3 = DoWorkAsync(SN_47Server, cts.Token);
+                        Task t4 = DoWorkAsync(LN_47Server, cts.Token);
 
-                    //Close servers.
-                    SNServer.Close();
-                    LNServer.Close();
-                    SN_47Server.Close();
-                    LN_47Server.Close();
-                    Console.WriteLine("Servers closed.");
+                        ConsoleKey k;
+                        while ((k = Console.ReadKey().Key) != ConsoleKey.Escape)
+                        {
+                            if (k == ConsoleKey.Delete)
+                            {
+                                Console.Clear();
+                            }
+                            Console.WriteLine("Press Esc to close application or delete clear the console.");
+                        }
+
+                        //Signal cancellation and wait for tasks to complete
+                        cts.Cancel();
+                        try
+                        {
+                            await Task.WhenAll(t1, t2, t3, t4);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            // Expected when cancellation is requested
+                        }
+
+                        //Close servers.
+                        SNServer.Close();
+                        LNServer.Close();
+                        SN_47Server.Close();
+                        LN_47Server.Close();
+                        Console.WriteLine("Servers closed.");
+                    }
                 }
                 return 0;
             }
@@ -169,17 +180,33 @@ namespace GuruxDLMSServerExample
         /// <summary>
         /// Call servers run to handle all notifications.
         /// </summary>
-        /// <param name="param"></param>
-        private static void DoWork(object param)
+        /// <param name="server">The DLMS server instance.</param>
+        /// <param name="cancellationToken">Cancellation token to stop the server loop.</param>
+        private static async Task DoWorkAsync(GXDLMSBase server, CancellationToken cancellationToken)
         {
-            AutoResetEvent wait = new AutoResetEvent(false);
-            GXDLMSBase server = (GXDLMSBase)param;
-            while (true)
+            using (AutoResetEvent wait = new AutoResetEvent(false))
             {
-                int wt = server.Run(wait);
-                //Wait until next event needs to execute.
-                Console.WriteLine("Waiting " + TimeSpan.FromSeconds(wt).ToString() + " before next execution.");
-                wait.WaitOne(wt * 1000);
+                try
+                {
+                    while (!cancellationToken.IsCancellationRequested)
+                    {
+                        int wt = server.Run(wait);
+                        //Wait until next event needs to execute.
+                        Console.WriteLine("Waiting " + TimeSpan.FromSeconds(wt).ToString() + " before next execution.");
+                        try
+                        {
+                            await Task.Delay(wt * 1000, cancellationToken);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            break;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error in DoWorkAsync: {ex.Message}");
+                }
             }
         }
 
